@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduAI - Asisten Belajar Pintar</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div class="chat-container">
+        <!-- Header Chatbot -->
+        <div class="chat-header">
+            <h2>🤖 EduAI Assistant</h2>
+            <p>Tanya apa saja seputar materi sekolah kelas 11</p>
+        </div>
+
+        <!-- Ruang Pesan Chat -->
+        <div id="chat-box" class="chat-box">
+            <div class="message ai-message">
+                Halo! Aku EduAI, asisten virtualmu. Ada yang bisa kubantu terkait materi pelajaran hari ini?
+            </div>
+        </div>
+
+        <!-- Area Input Pengguna -->
+        <div class="chat-input-area">
+            <input type="text" id="user-input" placeholder="Ketik pertanyaan di sini (misal: rumus fisika, tips belajar)..." autocomplete="off">
+            <button id="send-btn">Kirim</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
