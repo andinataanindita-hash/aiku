@@ -1,0 +1,228 @@
+<!-- ... existing code -->
+            pursuerGroup.position.z = playerGroup.position.z - pursuerDistance;
+
+            // Camera Tracking
+            camera.position.x = playerGroup.position.x * 0.35;
+        }
+
+        function triggerStumble() {
+            audio.playCrash();
+            spawnParticleBurst(playerGroup.position, 0xff0055);
+
+            // Move Andinata closer when player stumbles
+            targetPursuerDistance -= 2.2;
+
+            // Warning toast visual feedback
+            const toast = document.getElementById('warning-toast');
+            toast.classList.remove('opacity-0', 'translate-y-8');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'translate-y-8');
+            }, 1800);
+
+            // Game Over if Andinata catches Anindita
+            if (targetPursuerDistance <= 3.3) {
+                gameOver();
+            }
+        }
+
+        // --- PROCEDURAL ANIMATION LOOP ---
+        function animateSkeletalCharacters(delta) {
+            const runCycle = Date.now() * 0.012;
+
+            if (currentState === GAME_STATES.RUNNING) {
+                if (isJumping) {
+                    // Jump Pose: Legs tucked, arms extended upward
+                    playerLimbs.legLGroup.rotation.x = -0.7;
+                    playerLimbs.legRGroup.rotation.x = -0.4;
+                    playerLimbs.armLGroup.rotation.x = 2.2;
+                    playerLimbs.armRGroup.rotation.x = 2.2;
+                    playerLimbs.tailL.rotation.z = 0.8;
+                    playerLimbs.tailR.rotation.z = -0.8;
+                } else if (isSliding) {
+                    // Slide Pose: Low posture, leaning backward
+                    playerLimbs.torso.rotation.x = -0.85;
+                    playerLimbs.head.rotation.x = 0.4;
+                    playerLimbs.legLGroup.rotation.x = -1.2;
+                    playerLimbs.legRGroup.rotation.x = -1.2;
+                    playerLimbs.armLGroup.rotation.x = -0.5;
+                    playerLimbs.armRGroup.rotation.x = -0.5;
+                } else {
+                    // Continuous Running Animation Cycle
+                    playerLimbs.torso.rotation.x = 0.15;
+                    playerLimbs.head.rotation.x = 0;
+                    playerLimbs.legLGroup.rotation.x = Math.sin(runCycle) * 0.85;
+                    playerLimbs.legRGroup.rotation.x = -Math.sin(runCycle) * 0.85;
+                    playerLimbs.armLGroup.rotation.x = -Math.sin(runCycle) * 0.85;
+                    playerLimbs.armRGroup.rotation.x = Math.sin(runCycle) * 0.85;
+
+                    // Secondary physics motion (twin-tails fluttering)
+                    playerLimbs.tailL.rotation.z = 0.35 + Math.cos(runCycle * 2) * 0.15;
+                    playerLimbs.tailR.rotation.z = -0.35 - Math.cos(runCycle * 2) * 0.15;
+                }
+
+                // Pursuer (Andinata) Running Animation
+                pursuerLimbs.legLGroup.rotation.x = Math.sin(runCycle + 0.5) * 0.9;
+                pursuerLimbs.legRGroup.rotation.x = -Math.sin(runCycle + 0.5) * 0.9;
+                pursuerLimbs.armLGroup.rotation.x = -Math.sin(runCycle + 0.5) * 0.9;
+                pursuerLimbs.armRGroup.rotation.x = Math.sin(runCycle + 0.5) * 0.9;
+            } else {
+                // Idle Breathing Animation
+                const idleCycle = Date.now() * 0.003;
+                playerLimbs.torso.position.y = 1.15 + Math.sin(idleCycle) * 0.03;
+                playerLimbs.legLGroup.rotation.x = 0;
+                playerLimbs.legRGroup.rotation.x = 0;
+                playerLimbs.armLGroup.rotation.x = Math.sin(idleCycle) * 0.1;
+                playerLimbs.armRGroup.rotation.x = -Math.sin(idleCycle) * 0.1;
+            }
+        }
+
+        // --- GAME STATE CONTROLLERS ---
+        function startGame() {
+            audio.init();
+            audio.startBGM();
+
+            currentState = GAME_STATES.RUNNING;
+            distanceRun = 0;
+            coinsCollected = 0;
+            currentLaneIndex = 1;
+            playerY = 0;
+            isJumping = false;
+            isSliding = false;
+            pursuerDistance = 7.0;
+            targetPursuerDistance = 7.0;
+
+            playerGroup.position.set(LANE_POSITIONS[1], 0, 0);
+            pursuerGroup.position.set(LANE_POSITIONS[1], 0, -7.0);
+
+            // Clean active obstacles and collectibles
+            activeObstacles.forEach(obs => scene.remove(obs));
+            activeCollectibles.forEach(c => scene.remove(c));
+            activeObstacles = [];
+            activeCollectibles = [];
+
+            // Reset Track Segments
+            initEnvironmentPool();
+
+            // UI Adjustments
+            document.getElementById('hud').classList.remove('opacity-0');
+            document.getElementById('hud-bottom-tip').classList.remove('opacity-0');
+            document.getElementById('menu-overlay').classList.add('hidden');
+            document.getElementById('menu-title').classList.remove('flex');
+            document.getElementById('menu-title').classList.add('hidden');
+            document.getElementById('menu-gameover').classList.add('hidden');
+            document.getElementById('menu-gameover').classList.remove('flex');
+        }
+
+        function pauseGame() {
+            if (currentState === GAME_STATES.RUNNING) {
+                currentState = GAME_STATES.PAUSED;
+                document.getElementById('menu-overlay').classList.remove('hidden');
+                document.getElementById('menu-pause').classList.remove('hidden');
+                document.getElementById('menu-pause').classList.add('flex');
+            }
+        }
+
+        function resumeGame() {
+            if (currentState === GAME_STATES.PAUSED) {
+                currentState = GAME_STATES.RUNNING;
+                document.getElementById('menu-overlay').classList.add('hidden');
+                document.getElementById('menu-pause').classList.add('hidden');
+                document.getElementById('menu-pause').classList.remove('flex');
+            }
+        }
+
+        function gameOver() {
+            currentState = GAME_STATES.GAMEOVER;
+            audio.stopBGM();
+            audio.playCrash();
+
+            const finalDistance = Math.floor(distanceRun);
+            const totalScore = finalDistance + (coinsCollected * 15);
+
+            document.getElementById('go-distance').innerText = finalDistance + 'm';
+            document.getElementById('go-coins').innerText = coinsCollected;
+            document.getElementById('go-total').innerText = totalScore;
+
+            const highscoreElem = document.getElementById('go-new-highscore');
+            if (totalScore > highscore) {
+                highscore = totalScore;
+                localStorage.setItem('dreamscape_highscore', highscore.toString());
+                highscoreElem.classList.remove('hidden');
+            } else {
+                highscoreElem.classList.add('hidden');
+            }
+
+            document.getElementById('menu-highscore').innerText = highscore + 'm';
+
+            document.getElementById('hud').classList.add('opacity-0');
+            document.getElementById('hud-bottom-tip').classList.add('opacity-0');
+            document.getElementById('menu-overlay').classList.remove('hidden');
+            document.getElementById('menu-gameover').classList.remove('hidden');
+            document.getElementById('menu-gameover').classList.add('flex');
+        }
+
+        function onWindowResize() {
+            if (!camera || !renderer) return;
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- EVENT LISTENERS & INITIALIZATION ---
+        window.onload = () => {
+            initThree();
+            setupControls();
+            animate();
+
+            document.getElementById('menu-highscore').innerText = highscore + 'm';
+
+            // Menu Buttons
+            document.getElementById('btn-start').onclick = startGame;
+            document.getElementById('btn-restart').onclick = startGame;
+            document.getElementById('btn-restart-pause').onclick = startGame;
+            document.getElementById('btn-pause').onclick = pauseGame;
+            document.getElementById('btn-resume').onclick = resumeGame;
+
+            document.getElementById('btn-how-to').onclick = () => {
+                document.getElementById('menu-title').classList.add('hidden');
+                document.getElementById('menu-title').classList.remove('flex');
+                document.getElementById('menu-howto').classList.remove('hidden');
+                document.getElementById('menu-howto').classList.add('flex');
+            };
+
+            document.getElementById('btn-back-howto').onclick = () => {
+                document.getElementById('menu-howto').classList.add('hidden');
+                document.getElementById('menu-howto').classList.remove('flex');
+                document.getElementById('menu-title').classList.remove('hidden');
+                document.getElementById('menu-title').classList.add('flex');
+            };
+
+            document.getElementById('btn-main-menu').onclick = () => {
+                currentState = GAME_STATES.MENU;
+                document.getElementById('menu-gameover').classList.add('hidden');
+                document.getElementById('menu-gameover').classList.remove('flex');
+                document.getElementById('menu-title').classList.remove('hidden');
+                document.getElementById('menu-title').classList.add('flex');
+            };
+
+            document.getElementById('btn-quit-pause').onclick = () => {
+                currentState = GAME_STATES.MENU;
+                document.getElementById('menu-pause').classList.add('hidden');
+                document.getElementById('menu-pause').classList.remove('flex');
+                document.getElementById('menu-title').classList.remove('hidden');
+                document.getElementById('menu-title').classList.add('flex');
+            };
+
+            document.getElementById('btn-sound-toggle').onclick = () => {
+                soundEnabled = !soundEnabled;
+                document.getElementById('sound-status').innerText = soundEnabled ? 'ON' : 'OFF';
+                if (!soundEnabled) audio.stopBGM();
+                else if (currentState === GAME_STATES.RUNNING) audio.startBGM();
+            };
+        };
+    </script>
+</body>
+</html>
